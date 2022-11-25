@@ -7,7 +7,7 @@ const port = process.env.PORT || 5000;
 
 //middle were
 app.use(cors())
-app.use(express())
+app.use(express.json())
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.y8s6gcn.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -31,9 +31,17 @@ async function run(){
             res.send(resallerAllCategory)
         })
 
-        app.post('/bookings', async( req,res) =>{
-            const booking = req.body 
+        app.post('/bookings', async (req, res) => {
+            const booking = req.body
             console.log(booking);
+            const query ={
+                email: booking.email
+            }
+            const alreadyBooked = await bookingsCollection.find(query).toArray();
+            if(alreadyBooked.length){
+                const message = `You already have a booking on ${booking.email}`
+                return res.send({acknowledged : false, message}) 
+            }
             const result = await bookingsCollection.insertOne(booking);
             res.send(result)
         })

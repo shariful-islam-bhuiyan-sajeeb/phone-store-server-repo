@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000;
@@ -17,6 +17,7 @@ async function run(){
         const phoneStoreCollection = client.db('mobileStore').collection('mobileCategory')
         const phoneStoreCategoryCollection = client.db('mobileStore').collection('mobileCategoryAllCard')
         const bookingsCollection = client.db('mobileStore').collection('bookings')
+        const bookingUsersCollection = client.db('mobileStore').collection('bookingUsers')
 
         app.get('/mobileCollection', async(req ,res) =>{
             const query = {};
@@ -42,7 +43,9 @@ async function run(){
             const booking = req.body
             console.log(booking);
             const query ={
-                email: booking.email
+                email: booking.email,
+                brandName: booking.brandName,
+                originalPrice:booking.originalPrice
             }
             const alreadyBooked = await bookingsCollection.find(query).toArray();
             if(alreadyBooked.length){
@@ -52,6 +55,51 @@ async function run(){
             const result = await bookingsCollection.insertOne(booking);
             res.send(result)
         })
+        
+        //Booking user data........................
+
+        app.post('/bookingUsers', async (req, res) => {
+            const user = req.body;
+            const result = await bookingUsersCollection.insertOne(user);
+            res.send(result)
+        })
+
+        app.get('/bookingUsers', async (req, res) => {
+            const query = {};
+            const users = await bookingUsersCollection.find(query).toArray();
+            res.send(users)
+        })
+
+        app.get('/bookingUsers/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = {email}
+            const user = await bookingUsersCollection.findOne(query)
+            res.send({ isAdmin: user?.role === 'admin' });
+        })
+
+        //--------------
+        app.put('/bookingUsers/admin/:id',  async (req, res) => {
+            const decodedEmail = req.decoded.email;
+            const query ={email: decodedEmail};
+            const user = await bookingUsersCollection.findOne(query);
+
+            if(user?.role !== 'admin'){
+                return res.status(403).send({message: 'forbidden access'})
+            }
+
+            const id = req.params.id
+            const filter = { _id: ObjectId(id) }
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            }
+            const result = await bookingUsersCollection.updateOne(filter, updateDoc, options);
+            res.send(result)
+        })
+
+
 
 
     }

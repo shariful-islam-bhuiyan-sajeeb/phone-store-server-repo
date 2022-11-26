@@ -1,8 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-require('dotenv').config()
+
 const jwt = require('jsonwebtoken');
+require('dotenv').config()
 const app = express()
 const port = process.env.PORT || 5000;
 
@@ -13,11 +14,31 @@ app.use(express.json())
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.y8s6gcn.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
+
+
+function verifyJWT(req, res, next) {
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.send(401).send('unauthorizaed access');
+    }
+    const token = authHeader.split(' ')[1];
+
+    jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'forbidden access' })
+        }
+        req.decoded = decoded;
+        next()
+    })
+}
+
 async function run(){
     try{
         const phoneStoreCollection = client.db('mobileStore').collection('mobileCategory')
         const phoneStoreCategoryCollection = client.db('mobileStore').collection('mobileCategoryAllCard')
         const bookingsCollection = client.db('mobileStore').collection('bookings')
+        const reportCollection = client.db('mobileStore').collection('reports')
         const bookingUsersCollection = client.db('mobileStore').collection('bookingUsers')
 
         app.get('/mobileCollection', async(req ,res) =>{
@@ -56,6 +77,31 @@ async function run(){
             const result = await bookingsCollection.insertOne(booking);
             res.send(result)
         })
+
+        // product report-------------
+        app.post('/reports', async (req, res) => {
+            const report = req.body
+            console.log(report);
+            const query ={
+                reportId : report.reportId,
+                email: report.email,
+               
+            }
+            const alreadyReport = await reportCollection.find(query).toArray();
+            if(alreadyReport.length){
+                const message = `You already have a Report on ${report.email}`
+                return res.send({acknowledged : false, message}) 
+            }
+            const result = await reportCollection.insertOne(report);
+            res.send(result)
+        })
+
+        app.get('/reports', async (req, res) => {
+            const email = req.query.email;
+            const query = { email: email }
+            const reports = await reportCollection.find(query).toArray();
+            res.send(reports)
+        })
         
         //Booking user data........................
 
@@ -85,6 +131,7 @@ async function run(){
             const users = await bookingUsersCollection.find(query).toArray();
             res.send(users)
         })
+        
 
         app.get('/bookingUsers/admin/:email', async (req, res) => {
             const email = req.params.email;

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
+const jwt = require('jsonwebtoken');
 const app = express()
 const port = process.env.PORT || 5000;
 
@@ -63,6 +64,21 @@ async function run(){
             const result = await bookingUsersCollection.insertOne(user);
             res.send(result)
         })
+        //--------------jwt--------------------
+        app.get('/jwt', async (req, res) => {
+            const email = req.query.email;
+            // console.log(email);
+            const query = { email: email };
+            const user = await bookingUsersCollection.findOne(query);
+            if (user) {
+                const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
+                return res.send({ accessToken: token })
+            }
+            console.log(user);
+            res.status(403).send({ accessToken: '' })
+        })
+
+
 
         app.get('/bookingUsers', async (req, res) => {
             const query = {};
@@ -76,16 +92,17 @@ async function run(){
             const user = await bookingUsersCollection.findOne(query)
             res.send({ isAdmin: user?.role === 'admin' });
         })
+       
 
-        //--------------
+        
         app.put('/bookingUsers/admin/:id',  async (req, res) => {
-            const decodedEmail = req.decoded.email;
-            const query ={email: decodedEmail};
-            const user = await bookingUsersCollection.findOne(query);
+            // const decodedEmail = req.decoded.email;
+            // const query ={email: decodedEmail};
+            // const user = await bookingUsersCollection.findOne(query);
 
-            if(user?.role !== 'admin'){
-                return res.status(403).send({message: 'forbidden access'})
-            }
+            // if(user?.role !== 'admin'){
+            //     return res.status(403).send({message: 'forbidden access'})
+            // }
 
             const id = req.params.id
             const filter = { _id: ObjectId(id) }
@@ -98,9 +115,6 @@ async function run(){
             const result = await bookingUsersCollection.updateOne(filter, updateDoc, options);
             res.send(result)
         })
-
-
-
 
     }
     finally{

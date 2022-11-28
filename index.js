@@ -17,14 +17,13 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 
 function verifyJWT(req, res, next) {
-
     const authHeader = req.headers.authorization;
     if (!authHeader) {
         return res.send(401).send('unauthorizaed access');
     }
     const token = authHeader.split(' ')[1];
 
-    jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    jwt.verify(token, process.env.ACCESS_TOKEN, function(err, decoded) {
         if (err) {
             return res.status(403).send({ message: 'forbidden access' })
         }
@@ -40,6 +39,22 @@ async function run(){
         const bookingsCollection = client.db('mobileStore').collection('bookings')
         const reportCollection = client.db('mobileStore').collection('reports')
         const bookingUsersCollection = client.db('mobileStore').collection('bookingUsers')
+        const imgStoreCollection = client.db('mobileStore').collection('imgStore')
+        const addProductCollection = client.db('mobileStore').collection('addProducts')
+
+
+        //note: make sure you use verifyAdmin..... 
+        const verifyAdmin = async (req, res, next) => {
+            console.log('inside verifyAdmin', req.decoded.email);
+            const decodedEmail = req.decoded.email;
+            console.log(decodedEmail);
+            const query = { email: decodedEmail };
+            const user = await bookingUsersCollection.findOne(query);
+            if (user?.role !== 'admin') {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            next();
+        }
 
         app.get('/mobileCollection', async(req ,res) =>{
             const query = {};
@@ -54,9 +69,13 @@ async function run(){
             res.send(resallerAllCategory)
         })
 
-        app.get('/bookings', async (req,res) =>{
+        app.get('/bookings', verifyJWT, async (req,res) =>{
             const email = req.query.email;
-            const query = {email : email};
+            const decodedEmail = req.decoded.email;
+            if(email !== decodedEmail){
+                return res.status(403).send({message: 'forbidden access'})
+            }
+            const query = {email: email};
             const bookings = await bookingsCollection.find(query).toArray();
             res.send(bookings)
         })
@@ -95,7 +114,7 @@ async function run(){
             const result = await reportCollection.insertOne(report);
             res.send(result)
         })
-
+//--------------report dashboard data----------
         app.get('/reports', async (req, res) => {
             const email = req.query.email;
             const query = { email: email }
@@ -120,7 +139,6 @@ async function run(){
                 const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, { expiresIn: '1h' })
                 return res.send({ accessToken: token })
             }
-            console.log(user);
             res.status(403).send({ accessToken: '' })
         })
 
@@ -140,16 +158,15 @@ async function run(){
             res.send({ isAdmin: user?.role === 'admin' });
         })
        
-
         
-        app.put('/bookingUsers/admin/:id',  async (req, res) => {
-            // const decodedEmail = req.decoded.email;
-            // const query ={email: decodedEmail};
-            // const user = await bookingUsersCollection.findOne(query);
+        app.put('/bookingUsers/admin/:id', verifyJWT,verifyAdmin,  async (req, res) => {
+            const decodedEmail = req.decoded.email;
+            const query ={email: decodedEmail};
+            const user = await bookingUsersCollection.findOne(query);
 
-            // if(user?.role !== 'admin'){
-            //     return res.status(403).send({message: 'forbidden access'})
-            // }
+            if(user?.role !== 'admin'){
+                return res.status(403).send({message: 'forbidden access'})
+            }
 
             const id = req.params.id
             const filter = { _id: ObjectId(id) }
@@ -162,6 +179,53 @@ async function run(){
             const result = await bookingUsersCollection.updateOne(filter, updateDoc, options);
             res.send(result)
         })
+//-----------------img post-----------------------------
+        app.post('/imgStore', async (req, res) => {
+            const imgStore = req.body;
+            const result = await imgStoreCollection.insertOne(imgStore);
+            res.send(result)
+        })
+
+        app.get('/imgStore',async (req, res) => {
+            const query = {}
+            const imgStore = await imgStoreCollection.find(query).toArray()
+            res.send(imgStore)
+        })
+
+        // my bookingUser (my User) table delete-----------
+        app.delete('/bookingUser/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const result = await bookingUsersCollection.deleteOne(filter)
+            res.send(result)
+        })
+        
+    //--------------add product----------------
+
+        app.get('/addProducts', async (req, res) => {
+            const query = {}
+            const result = await phoneStoreCategoryCollection.find(query).project({ name: 1 }).toArray();
+            res.send(result)
+        });
+
+        app.post('/addProducts', async (req,res) =>{
+            const product = req.body;
+            const result = await addProductCollection.insertOne(product);
+            res.send(result);
+        })
+
+        app.get('/manageProduct', async (req, res) => {
+            const query = {}
+            const product = await addProductCollection.find(query).toArray()
+            res.send(product)
+        })
+
+        app.delete('/manageProduct/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: ObjectId(id) }
+            const result = await addProductCollection.deleteOne(filter)
+            res.send(result)
+        }) 
 
     }
     finally{

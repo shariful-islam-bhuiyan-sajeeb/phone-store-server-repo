@@ -62,7 +62,7 @@ async function run(){
             res.send(options)
         })
 
-        app.get('/home/category/:id', async (req, res) =>{
+        app.get('/home/category/:id',  async (req, res) =>{
             const id = req.params.id;
             const query = {category : id};
             const resallerAllCategory = await phoneStoreCategoryCollection.find(query).toArray();
@@ -157,7 +157,7 @@ async function run(){
             const email = req.params.email;
             const query = {email}
             const user = await bookingUsersCollection.findOne(query)
-            res.send(user);
+            res.send({isAdmin: user?.role === 'admin'});
         })
        
         

@@ -157,7 +157,7 @@ async function run(){
             const email = req.params.email;
             const query = {email}
             const user = await bookingUsersCollection.findOne(query)
-            res.send({isAdmin: user?.role === 'admin'});
+            res.send({ isAdmin: user?.role === 'admin' });
         })
        
         

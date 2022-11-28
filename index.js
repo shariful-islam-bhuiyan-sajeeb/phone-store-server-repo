@@ -69,16 +69,18 @@ async function run(){
             res.send(resallerAllCategory)
         })
 
-        app.get('/bookings', verifyJWT, async (req,res) =>{
+        app.get('/bookings', async (req,res) =>{
             const email = req.query.email;
-            const decodedEmail = req.decoded.email;
-            if(email !== decodedEmail){
-                return res.status(403).send({message: 'forbidden access'})
-            }
+            // const decodedEmail = req.decoded.email;
+            // if(email !== decodedEmail){
+            //     return res.status(403).send({message: 'forbidden access'})
+            // }
+            console.log(email);
             const query = {email: email};
             const bookings = await bookingsCollection.find(query).toArray();
             res.send(bookings)
         })
+
 
         app.post('/bookings', async (req, res) => {
             const booking = req.body
@@ -155,18 +157,18 @@ async function run(){
             const email = req.params.email;
             const query = {email}
             const user = await bookingUsersCollection.findOne(query)
-            res.send({ isAdmin: user?.role === 'admin' });
+            res.send(user);
         })
        
         
         app.put('/bookingUsers/admin/:id', verifyJWT,verifyAdmin,  async (req, res) => {
-            const decodedEmail = req.decoded.email;
-            const query ={email: decodedEmail};
-            const user = await bookingUsersCollection.findOne(query);
+            // const decodedEmail = req.decoded.email;
+            // const query ={email: decodedEmail};
+            // const user = await bookingUsersCollection.findOne(query);
 
-            if(user?.role !== 'admin'){
-                return res.status(403).send({message: 'forbidden access'})
-            }
+            // if(user?.role !== 'admin'){
+            //     return res.status(403).send({message: 'forbidden access'})
+            // }
 
             const id = req.params.id
             const filter = { _id: ObjectId(id) }
@@ -179,14 +181,16 @@ async function run(){
             const result = await bookingUsersCollection.updateOne(filter, updateDoc, options);
             res.send(result)
         })
+
+        
 //-----------------img post-----------------------------
-        app.post('/imgStore', async (req, res) => {
+        app.post('/imgStore', verifyJWT,verifyAdmin, async (req, res) => {
             const imgStore = req.body;
             const result = await imgStoreCollection.insertOne(imgStore);
             res.send(result)
         })
 
-        app.get('/imgStore',async (req, res) => {
+        app.get('/imgStore', verifyJWT,verifyAdmin, async (req, res) => {
             const query = {}
             const imgStore = await imgStoreCollection.find(query).toArray()
             res.send(imgStore)
